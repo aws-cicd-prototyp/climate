@@ -1,0 +1,14 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cloudformation-Stack for Microservices
+
+Parameters:
+  MicroserviceName:
+    Type: String
+  Stage:
+    Type: String
+    
+Resources: 
+  ECRRepository: 
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: !Sub "${MicroserviceName}-ecr-${Stage}"

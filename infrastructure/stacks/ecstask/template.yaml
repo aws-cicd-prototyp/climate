@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cloudformation-Stack for the climate-microservice
+
+Parameters:
+  MicroserviceName:
+    Type: String
+  # DDBStack:
+  #   Type: String
+  Stage:
+    Type: String
+  VpcStack:
+    Type: String
+  ElbStack:
+    Type: String
+  TaskMemory:
+    Type: String
+  TaskCPU:
+    Type: String
+  ContainerPort:
+    Type: String
+  ECSClusterStack:
+    Type: String
+
+Resources:
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      RoleName: "smartoffice-ecsTaskExecutionRole"
+      Description: "smartoffice-ecsTaskExecutionRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+      Memory: !Ref TaskMemory
+      Cpu: !Ref TaskCPU
+      ContainerDefinitions:
+        - Name: !Sub "${MicroserviceName}-container"
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${MicroserviceName}-ecr-dev:latest"
+          Cpu: !Ref TaskCPU
+          Memory: !Ref TaskMemory
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              HostPort: !Ref ContainerPort
+              Protocol: tcp
+          Essential: true
+
+  ServiceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${MicroserviceName}-ecsService-sg"
+      GroupDescription: !Sub "The SG for ${MicroserviceName}-ecsService"
+      SecurityGroupIngress:
+        - Description: "Inbound Rule for tcp on port 8080 for ipv4"
+          FromPort: 8080
+          ToPort: 8080
+          IpProtocol: tcp
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub "${ElbStack}:Alb-SG-Id"
+      Tags:
+        - Key: Name
+          Value: !Sub "${MicroserviceName}-ecsService-sg"
+        - Key: Microservice
+          Value: !Sub "${MicroserviceName}"
+        - Key: Stage
+          Value: !Sub "${Stage}"
+      VpcId:
+        Fn::ImportValue: !Sub "${VpcStack}:VPC-Id"
+
+  ServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "ClimateEcsServiceRole"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole'
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      LaunchType: FARGATE
+      TaskDefinition: !Ref TaskDefinition
+      Cluster:
+        Fn::ImportValue: !Sub '${ECSClusterStack}:ecsArn'
+      ServiceName: !Sub "${MicroserviceName}-${Stage}-service"
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      DesiredCount: 0
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref ServiceSG
+          Subnets:
+            - Fn::ImportValue: !Sub "${VpcStack}:PrivateSubnetA-Id"
+            - Fn::ImportValue: !Sub "${VpcStack}:PrivateSubnetB-Id"
+            - Fn::ImportValue: !Sub "${VpcStack}:PrivateSubnetC-Id"
+      LoadBalancers:
+        - ContainerName: !Sub "${MicroserviceName}-container"
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn:
+            Fn::ImportValue: !Sub "${ElbStack}:TargetGroupARN"
+Outputs:
+  ServiceNameOutput:
+    Description: The Name of the ECS-service
+    Value: !GetAtt Service.Name
+    Export:
+      Name: !Sub "${AWS::StackName}:serviceName"

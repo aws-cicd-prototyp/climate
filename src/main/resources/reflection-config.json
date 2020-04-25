@@ -1,0 +1,11 @@
+[
+  {
+    "name" : "com.smartoffice.climate.climatedata.entity.ClimateData",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "allDeclaredFields" : true,
+    "allPublicFields" : true
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "Parameters": {
+    "MicroserviceName": "climate",
+    "Stage": "dev",
+    "TaskMemory": "512",
+    "TaskCPU": "256",
+    "ContainerPort": "8080",
+    "VpcStack": "base-vpc-dev",
+    "ElbStack": "base-elb-dev",
+    "ECSClusterStack": "base-ecsCluster-dev"
+  }
+}

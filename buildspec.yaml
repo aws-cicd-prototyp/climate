@@ -1,0 +1,30 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: openjdk8
+  pre_build:
+    commands:
+      - echo log-in into ecr in prod-stage
+      - aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev
+  build:
+    commands:
+      - echo ===============Build started on `date`===============
+      - echo =+=show current filesystem=+=
+      - ls -lah
+      - echo build Project
+      - mvn clean install
+      - echo =+=show current filesystem=+=
+      - ls -lah
+      - echo build docker-image
+      - docker build -f src/main/docker/Dockerfile.jvm -t climate-jvm .
+      - echo tag docker-image
+      - docker tag climate-jvm:latest 496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev:latest
+  post_build:
+    commands:
+      - echo pushing the docker image to ecr
+      - docker push 496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev:latest
+      - printf '[{"name":"climate-container","imageUri":"496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev:latest"}]' > imagedefinitions.json
+artifacts:
+  files: imagedefinitions.json
