@@ -37,7 +37,7 @@ Resources:
   ALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub loadbalancer-${Repository}-${Stage}-${Suffix}
+      Name: !Sub alb-${Repository}${Suffix}
       IpAddressType: ipv4
       Scheme: internet-facing
       Type: application
