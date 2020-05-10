@@ -10,7 +10,7 @@ WORKLOAD_ACCOUNT_ID=496106771575
 deployPipeline:
 	@echo "Creating the Pipeline Stack..."
 	@aws cloudformation create-stack \
-		--stack-name climateMsStack \
+		--stack-name climateMsPipelineStack \
 		--template-body file://pipeline.yaml \
 		--parameters \
         			ParameterKey="Project",ParameterValue="aws-cicd-prototyp" \

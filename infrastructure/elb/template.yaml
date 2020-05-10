@@ -27,7 +27,7 @@ Resources:
           FromPort: 8080
           ToPort: 8080
       VpcId:
-        Fn::ImportValue: !Sub ${VpcStackName}.VpcId
+        Fn::ImportValue: !Sub ${VpcStackName}:VpcId
       Tags:
         - Key: "Name"
           Value: !Sub sg-elb-${Repository}-${Stage}-${Suffix}
@@ -44,7 +44,7 @@ Resources:
       SecurityGroups:
         - !Ref SgALB
       Subnets:
-        Fn::ImportValue: !Sub ${VpcStackName}.PublicSubnetIds
+        Fn::ImportValue: !Sub ${VpcStackName}:PublicSubnetIds
       Tags:
         - Key: "Name"
           Value: !Sub sg-elb-${Repository}-${Stage}-${Suffix}
@@ -74,7 +74,7 @@ Resources:
           Value: !Sub ${Stage}
       TargetType: "ip"
       VpcId:
-        Fn::ImportValue: !Sub ${VpcStackName}.VpcId
+        Fn::ImportValue: !Sub ${VpcStackName}:VpcId
 
   AlbListener:
     Type: AWS::ElasticLoadBalancingV2::Listener

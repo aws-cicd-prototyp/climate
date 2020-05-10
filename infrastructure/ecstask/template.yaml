@@ -114,7 +114,7 @@ Resources:
           SecurityGroups:
             - !Ref ServiceSG
           Subnets:
-            - Fn::ImportValue: !Sub ${VpcStackName}.PrivateSubnetIds
+            - Fn::ImportValue: !Sub ${VpcStackName}:PrivateSubnetIds
       LoadBalancers:
         - ContainerName: !Sub ${Repository}-${Suffix}-container
           ContainerPort: 8080
