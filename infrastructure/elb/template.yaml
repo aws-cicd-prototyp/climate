@@ -18,7 +18,7 @@ Resources:
   SgALB:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub sg-elb-${Repository}-${Stage}-${Suffix}
+      GroupName: !Sub sg-elb-${Repository}-${Suffix}
       GroupDescription: "Security-Group for the ELB"
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -54,7 +54,7 @@ Resources:
   AlbTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub tg-elb-${Repository}-${Stage}-${Suffix}
+      Name: !Sub tg-elb-${Repository}-${Suffix}
       HealthCheckEnabled: True
       HealthCheckIntervalSeconds: 30
       HealthCheckPath: "/health"
