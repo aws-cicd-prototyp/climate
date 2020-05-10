@@ -43,8 +43,7 @@ Resources:
       Type: application
       SecurityGroups:
         - !Ref SgALB
-      Subnets:
-        - !Join
+      Subnets: !Join
           - ','
           - Fn::ImportValue: !Sub ${VpcStackName}:PublicSubnetIds
       Tags:
