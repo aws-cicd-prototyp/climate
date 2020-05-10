@@ -43,9 +43,10 @@ Resources:
       Type: application
       SecurityGroups:
         - !Ref SgALB
-      Subnets: !Join
-          - ','
-          - Fn::ImportValue: !Sub ${VpcStackName}:PublicSubnetIds
+      Subnets:
+        Fn::Join:
+          - ","
+          - Fn::ImportValue: !Sub "${VpcStackName}:PublicSubnetIds"
       Tags:
         - Key: "Name"
           Value: !Sub sg-elb-${Repository}-${Stage}-${Suffix}
