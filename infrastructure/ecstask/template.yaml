@@ -49,7 +49,7 @@ Resources:
       Memory: 512
       Cpu: 256
       ContainerDefinitions:
-        - Name: !Sub containerDef-${Repository}-${Stage}-${Suffix}
+        - Name: !Sub ${Repository}-${Suffix}-container
           Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}-ecr-dev:latest"
           Memory: 512
           Cpu: 256

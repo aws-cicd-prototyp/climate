@@ -208,7 +208,7 @@ Resources:
               Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                StackName: !Sub "base-ecsCluster-${Stage}-${Suffix}"
+                StackName: !Sub "ecsTaskAndService-${Stage}-${Suffix}"
                 RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
                 TemplatePath: "SourceArtifact::infrastructure/ecstask/template.yaml"
                 ParameterOverrides:
