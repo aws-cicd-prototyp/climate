@@ -174,7 +174,7 @@ Resources:
               InputArtifacts:
                 - Name: SourceArtifact
               RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
-              RunOrder: 2
+              RunOrder: 1
             - Name: DeployELB
               ActionTypeId:
                 Category: Deploy
@@ -222,22 +222,23 @@ Resources:
               InputArtifacts:
                 - Name: SourceArtifact
               RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
-              RunOrder: 2
+              RunOrder: 3
         - Name: BuildMicroservice
           Actions:
             - Name: BuildAndPushImage
-                ActionTypeId:
-                  Category: Build
-                  Owner: AWS
-                  Version: 1
-                  Provider: CodeBuild
-                Configuration:
-                  ProjectName: !Ref CodeBuildProject
-                InputArtifacts:
-                  - Name: SourceArtifact
-                OutputArtifacts:
-                  - Name: BuildOutput
-                RunOrder: 1
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+
 #            - Name: DeployToEcr
 #              Actions:
 #                - Name: Deploy
