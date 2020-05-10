@@ -2,13 +2,46 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Cloudformation-Stack for Microservices
 
 Parameters:
-  MicroserviceName:
+  Project:
+    Type: String
+  Repository:
     Type: String
   Stage:
     Type: String
-    
-Resources: 
+  Suffix:
+    Type: String
+  EcrName:
+    Type: String
+
+Resources:
   ECRRepository: 
     Type: AWS::ECR::Repository
     Properties: 
-      RepositoryName: !Sub "${MicroserviceName}-ecr-${Stage}"
+      RepositoryName: !Ref EcrName
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowPushPull
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:BatchDeleteImage"
+              - "ecr:BatchGetImage"
+              - "ecr:CompleteLayerUpload"
+              - "ecr:DeleteLifecyclePolicy"
+              - "ecr:DeleteRepository"
+              - "ecr:DeleteRepositoryPolicy"
+              - "ecr:DescribeImages"
+              - "ecr:DescribeRepositories"
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:GetLifecyclePolicy"
+              - "ecr:GetLifecyclePolicyPreview"
+              - "ecr:GetRepositoryPolicy"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:ListImages"
+              - "ecr:PutImage"
+              - "ecr:PutLifecyclePolicy"
+              - "ecr:SetRepositoryPolicy"

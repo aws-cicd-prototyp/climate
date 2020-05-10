@@ -2,13 +2,13 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: The SmartOffice DynamoDB-Table Stack
 
 Parameters:
-  microserviceName:
+  Project:
     Type: String
-  ddbReadCapUnits:
-    Type: String
-  ddbWriteCapUnits:
+  Repository:
     Type: String
   Stage:
+    Type: String
+  Suffix:
     Type: String
 
 Resources: 
@@ -27,9 +27,9 @@ Resources:
         - AttributeName: "sortkey"
           KeyType: "RANGE"  
       ProvisionedThroughput: 
-        ReadCapacityUnits: !Sub "${ddbReadCapUnits}"
-        WriteCapacityUnits: !Sub "${ddbWriteCapUnits}"
-      TableName: !Sub "${microserviceName}-${AWS::StackName}-table-${Stage}"
+        ReadCapacityUnits: 50
+        WriteCapacityUnits: 50
+      TableName: !Sub "ddb-table-${Repository}-${Stage}-${Suffix}"
 
 Outputs:
   DDBTableArnOutput:

@@ -2,55 +2,132 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: "Cf-Stack for the cicd-pipeline regarding base-infrastructure in all stages"
 
 Parameters:
-  RemoteAccount:
-    Description: "AWS AccountId for the RemoteAccount"
-    Type: Number
   Project:
-    Description: "The name of the github project/organization"
+    Description: Project name
     Type: String
   Repository:
-    Description: "The name of the git repository"
+    Description: Repository name
     Type: String
-  PipelineKmsKeyArn:
-    Description: "The arn of the KMS-Key that is used for the enryption/decryption of the ArtifactStore"
-    Type: String
-  ArtifactBucket:
-    Description: "The Name of the CI/CD Artifact Store"
+  Suffix:
+    Description: Sanitized suffix name, safe to use for CF resource names
     Type: String
   Branch:
-    Description: "The Branch Name"
+    Description: The original unsanitized branch name to reference in Git configuration
     Type: String
   Stage:
-    Description: "The Stage"
+    Description: "Pipeline stage"
     Type: String
+  RemotePreviewAccount:
+    Description: "Remote child account: development or integration"
+    Type: String
+  RemoteDeliveryAccount:
+    Description: "Remote delivery child account: production"
+    Type: String
+    Default: "NO_VALUE"
+  ArtifactBucket:
+    Description: "Artifact Bucket"
+    Type: String
+  PipelineKmsKeyArn:
+    Description: "Pipeline KMS key"
+    Type: String
+  PipelineServiceRoleArn: # => pipelineServiceRole
+    Description: Service role ARN to pass to pipeline
+    Type: String
+  DynamicPipelineCleanupLambdaArn:
+    Description: CF Stack cleanup Lambda ARN
+    Type: String
+  CreateForDelivery:
+    Description: Conditional-Param that indicates whether a pipeline should be created for delivery(int,prod) or preview(dev)
+    Type: String
+    Default: false
+    AllowedValues: [true, false]
+  EcrName:
+    Description: The name for the central devOps ecr-repo
+    Type: String
+    Default: ecr-microservices
 
-  #internal vars:
-  BaseInfraCrossAccountRole:
-    Description: "Name of the BaseInfraCrossAccountRole"
-    Type: String
-    Default: 'BaseInfraCrossAccountRole'
-  BaseInfraCrossAccountCoreRole:
-    Description: "Name of the BaseInfraCrossAccountCoreRole"
-    Type: String
-    Default: 'BaseInfraCrossAccountCoreRole'
+Conditions:
+  ShouldCreateForDelivery: !Equals [ !Ref CreateForDelivery, true ]
 
 Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref EcrName
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowPushPull
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${AWS::AccountId}:root
+                - !Sub arn:aws:iam::${RemotePreviewAccount}:root
+                - !Sub arn:aws:iam::${RemoteDeliveryAccount}:root
+            Action:
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:BatchDeleteImage"
+              - "ecr:BatchGetImage"
+              - "ecr:CompleteLayerUpload"
+              - "ecr:DeleteLifecyclePolicy"
+              - "ecr:DeleteRepository"
+              - "ecr:DeleteRepositoryPolicy"
+              - "ecr:DescribeImages"
+              - "ecr:DescribeRepositories"
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:GetLifecyclePolicy"
+              - "ecr:GetLifecyclePolicyPreview"
+              - "ecr:GetRepositoryPolicy"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:ListImages"
+              - "ecr:PutImage"
+              - "ecr:PutLifecyclePolicy"
+              - "ecr:SetRepositoryPolicy"
+
+
+#  CodeBuild: ... #CodeBuildRolle = PipelineServiceRoleArn
+#  => bauen von buildspec.yaml nur in INT account. INT pushed auf INT+PROD. PROD hat dann kein build mehr.
+#  => ArtifactPropergation
+
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:3.0
+        Type: LINUX_CONTAINER
+        PrivilegedMode: True
+        EnvironmentVariables:
+          - Name: CREATE_FOR_DELIVERY
+            Value: !Ref CreateForDelivery
+          - Name: DEVOPS_ACCOUNT_ID
+            Value: !Sub ${AWS::AccountId}
+          - Name: ECR_NAME
+            Value: !Ref EcrName
+          - Name: REPOSITORY
+            Value: !Ref Repository
+          - Name: SUFFIX
+            Value: !Ref Suffix
+      Name: !Ref AWS::StackName
+      ServiceRole: !Ref PipelineServiceRoleArn
 
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
+      Name: !Sub "microservice-pipeline-${Project}-${Repository}-${Stage}-${Suffix}"
       ArtifactStore:
         EncryptionKey:
-          Id:
-            Fn::ImportValue: !Sub ${PreReqStack}:CMK-Arn
-          Type: "KMS"
-        Location:
-          Fn::ImportValue: !Sub ${PreReqStack}:S3ArtifactBucket
-        Type: "S3"
-      Name: "climate-cfPipeline-dev"
+          Id: !Ref PipelineKmsKeyArn
+          Type: KMS
+        Location: !Ref ArtifactBucket
+        Type: S3
       RestartExecutionOnUpdate: False
-      RoleArn:
-        Fn::ImportValue: !Sub ${CodePipelineRoleStack}:roleArn
+      RoleArn: !Ref PipelineServiceRoleArn
       Stages:
         - Name: Checkout-SourceCode
           Actions:
@@ -59,68 +136,120 @@ Resources:
                 Category: Source
                 Owner: ThirdParty
                 Provider: GitHub
-                Version: "1"
+                Version: 1
               Configuration:
-                Owner: "smartoffice-cloudnative"
-                Repo: "climate"
-                Branch: "master"
+                Owner: !Ref Project
+                Repo: !Ref Repository
+                Branch: !Ref Branch
                 PollForSourceChanges: False
-                OAuthToken: !Ref gitHubOAuthToken
+                OAuthToken: 123
               OutputArtifacts:
-                - Name: "SourceArtifact"
+                - Name: SourceArtifact
               RunOrder: 1
-        - Name: "Deploy-to-Production"
+        - Name: !If
+            - ShouldCreateForDelivery
+            - 'DeployInfrastructureToInt'
+            - 'DeployInfrastructureToDev'
           Actions:
-            - Name: "deploy-ecr"
+            - Name: DeployDynamoDbTable
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
                 Provider: CloudFormation
-                Version: "1"
+                Version: 1
               Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                StackName: "climate-ecr-dev"
-                RoleArn: !Sub ${CfDeployerCrossAccountProdRoleArn}
-                TemplateConfiguration: "SourceArtifact::infrastructure/stacks/ecr/dev.json"
-                TemplatePath: "SourceArtifact::infrastructure/stacks/ecr/template.yaml"
+                StackName: !Sub "ddbTable-${Stage}-${Suffix}"
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                TemplatePath: "SourceArtifact::infrastructure/ddb/template.yaml"
+                ParameterOverrides:
+                  Fn::Sub: |
+                    {
+                      "Project": "${Project}",
+                      "Repository": "${Repository}",
+                      "Stage": "${Stage}",
+                      "Suffix" : "${Suffix}"
+                    }
               InputArtifacts:
-                - Name: "SourceArtifact"
-              RoleArn: !Sub ${CfBasePipelineCrossAccountProdRoleArn}
-              RunOrder: 1
-
-            - Name: "deploy-ecsTaskAndService"
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: "1"
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                StackName: "climate-ecsTaskAndService-dev"
-                RoleArn: !Sub ${CfDeployerCrossAccountProdRoleArn}
-                TemplateConfiguration: "SourceArtifact::infrastructure/stacks/ecstask/dev.json"
-                TemplatePath: "SourceArtifact::infrastructure/stacks/ecstask/template.yaml"
-              InputArtifacts:
-                - Name: "SourceArtifact"
-              RoleArn: !Sub ${CfBasePipelineCrossAccountProdRoleArn}
-              RunOrder: 1
-
-            - Name: "deploy-ddb"
-              ActionTypeId:
-                Category: "Deploy"
-                Owner: "AWS"
-                Provider: "CloudFormation"
-                Version: "1"
-              Configuration:
-                ActionMode: "CREATE_UPDATE"
-                Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
-                StackName: "climate-ddb-dev"
-                RoleArn: !Sub ${CfDeployerCrossAccountProdRoleArn}
-                TemplatePath: "SourceArtifact::infrastructure/stacks/ddb/template.yaml"
-                TemplateConfiguration: "SourceArtifact::infrastructure/stacks/ddb/dev.json"
-              InputArtifacts:
-                - Name: "SourceArtifact"
-              RoleArn: !Sub ${CfBasePipelineCrossAccountProdRoleArn}
+                - Name: SourceArtifact
+              RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
               RunOrder: 2
+            - Name: DeployELB
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                StackName: !Sub elb-${Repository}-${Stage}-${Suffix}
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                TemplatePath: "SourceArtifact::infrastructure/elb/template.yaml"
+                ParameterOverrides:
+                  Fn::Sub: |
+                    {
+                      "Project": "${Project}",
+                      "Repository": "${Repository}",
+                      "Stage": "${Stage}",
+                      "Suffix" : "${Suffix}"
+                    }
+              InputArtifacts:
+                - Name: SourceArtifact
+              RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+              RunOrder: 2
+            - Name: DeployEcsTaskAndService
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                StackName: !Sub "base-ecsCluster-${Stage}-${Suffix}"
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                TemplatePath: "SourceArtifact::infrastructure/ecstask/template.yaml"
+                ParameterOverrides:
+                  Fn::Sub: |
+                    {
+                      "Project": "${Project}",
+                      "Repository": "${Repository}",
+                      "Stage": "${Stage}",
+                      "Suffix" : "${Suffix}"
+                    }
+              InputArtifacts:
+                - Name: SourceArtifact
+              RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+              RunOrder: 2
+        - Name: BuildMicroservice
+          Actions:
+            - Name: BuildAndPushImage
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeBuild
+                Configuration:
+                  ProjectName: !Ref CodeBuildProject
+                InputArtifacts:
+                  - Name: SourceArtifact
+                OutputArtifacts:
+                  - Name: BuildOutput
+                RunOrder: 1
+#            - Name: DeployToEcr
+#              Actions:
+#                - Name: Deploy
+#                  ActionTypeId:
+#                    Category: Deploy
+#                    Owner: AWS
+#                    Version: 1
+#                    Provider: ECS
+#                  Configuration:
+#                    ClusterName: !Sub ${EcsClusterName}
+#                    ServiceName: !Sub ${EcsServiceName}
+#                  InputArtifacts:
+#                    - Name: BuildOutput
+#                  RunOrder: 1
+#                  RoleArn: !Sub ${MsEcrCrossAccountRole}

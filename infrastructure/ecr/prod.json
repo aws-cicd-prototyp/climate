@@ -1,6 +1,0 @@
-{
-  "Parameters": {
-    "MicroserviceName": "climate",
-    "Stage": "prod"
-  }
-}

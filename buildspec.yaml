@@ -1,30 +1,56 @@
 version: 0.2
 
+env:
+  variables:
+    CREATE_FOR_DELIVERY: "get value from cloudformation"
+    DEVOPS_ACCOUNT_ID: "get value from cloudformation"
+    ECR_NAME: "get value from cloudformation"
+    REPOSITORY: "get value from cloudformation"
+    SUFFIX: "get value from cloudformation"
+
 phases:
   install:
     runtime-versions:
       java: openjdk8
   pre_build:
     commands:
-      - echo log-in into ecr in prod-stage
-      - aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev
+      - set -e
+      - echo log-in into ecr
+      - aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com
   build:
     commands:
-      - echo ===============Build started on `date`===============
-      - echo =+=show current filesystem=+=
+      - echo start build on `date`
+      - set -e
       - ls -lah
-      - echo build Project
       - mvn clean install
-      - echo =+=show current filesystem=+=
+      - cd target
       - ls -lah
-      - echo build docker-image
-      - docker build -f src/main/docker/Dockerfile.jvm -t climate-jvm .
-      - echo tag docker-image
-      - docker tag climate-jvm:latest 496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev:latest
-  post_build:
-    commands:
-      - echo pushing the docker image to ecr
-      - docker push 496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev:latest
-      - printf '[{"name":"climate-container","imageUri":"496106771575.dkr.ecr.eu-central-1.amazonaws.com/climate-ecr-dev:latest"}]' > imagedefinitions.json
+      - |
+        if [ $CREATE_FOR_DELIVERY = "true" ]
+        then
+          echo "start build and push process for DELIVERY stages:"
+          docker build -f src/main/docker/Dockerfile.jvm -t ${REPOSITORY}-${SUFFIX}-delivery-image:$CODEBUILD_RESOLVED_SOURCE_VERSION .
+
+          docker tag ${REPOSITORY}-${SUFFIX}-delivery-image:$CODEBUILD_RESOLVED_SOURCE_VERSION \
+          ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:$CODEBUILD_RESOLVED_SOURCE_VERSION
+
+          docker push ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:$CODEBUILD_RESOLVED_SOURCE_VERSION
+          printf '[{"name":"${Repository}-${Suffix}-container","imageUri":"${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:$CODEBUILD_RESOLVED_SOURCE_VERSION"}]' > imagedefinitions.json
+
+        elif [ $CREATE_FOR_DELIVERY = "false" ]
+        then
+          echo "start build and push process for PREVIEW stage:"
+          docker build -f src/main/docker/Dockerfile.jvm -t ${REPOSITORY}-${SUFFIX}-preview-image:${SUFFIX} .
+
+          docker tag ${REPOSITORY}-${SUFFIX}-preview-image:${SUFFIX} \
+          ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}
+
+          docker push ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}
+          printf '[{"name":"${Repository}-${Suffix}-container","imageUri":"${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}"}]' > imagedefinitions.json
+
+        else
+          echo "!!! ERROR, invalid boolean for env-variable: CREATE_FOR_DELIVERY !!!"
+        fi
 artifacts:
-  files: imagedefinitions.json
+  files:
+    - imagedefinitions.json
