@@ -23,8 +23,6 @@ phases:
       - set -e
       - ls -lah
       - mvn clean install
-      - cd target
-      - ls -lah
       - |
         if [ $CREATE_FOR_DELIVERY = "true" ]
         then
