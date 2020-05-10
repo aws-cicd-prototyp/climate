@@ -44,7 +44,7 @@ phases:
           ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}
 
           docker push ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}
-          printf '[{"name":"${Repository}-${Suffix}-container","imageUri":"${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}"}]' > imagedefinitions.json
+          printf '[{"name":"%s-%s-container","imageUri":"%s.dkr.ecr.eu-central-1.amazonaws.com/%s:%s"}]' ${Repository} ${Suffix} ${DEVOPS_ACCOUNT_ID} ${ECR_NAME} ${SUFFIX} > imagedefinitions.json
 
         else
           echo "!!! ERROR, invalid boolean for env-variable: CREATE_FOR_DELIVERY !!!"
