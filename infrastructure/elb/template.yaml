@@ -18,7 +18,7 @@ Resources:
   SgALB:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub sg-elb-${Repository}-${Suffix}
+      GroupName: !Sub sgElb${Repository}${Suffix}
       GroupDescription: "Security-Group for the ELB"
       SecurityGroupIngress:
         - IpProtocol: tcp
