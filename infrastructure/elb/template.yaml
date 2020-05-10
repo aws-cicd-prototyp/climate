@@ -12,7 +12,7 @@ Parameters:
   #import from existing-stacks:
   VpcStackName:
     Type: String
-    Default: !Sub "base-vpc-${Stage}-${Suffix}"
+    Default: "base-vpc-prod-customSuffix"
 
 Resources:
   SgALB:
