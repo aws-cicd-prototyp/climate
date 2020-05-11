@@ -36,24 +36,15 @@ Parameters:
   DynamicPipelineCleanupLambdaArn:
     Description: CF Stack cleanup Lambda ARN
     Type: String
-  CreateForDelivery:
-    Description: Conditional-Param that indicates whether a pipeline should be created for delivery(int,prod) or preview(dev)
-    Type: String
-    Default: false
-    AllowedValues: [true, false]
-  EcrName:
-    Description: The name for the central devOps ecr-repo
-    Type: String
-    Default: ecr-microservices
 
 Conditions:
-  ShouldCreateForDelivery: !Equals [ !Ref CreateForDelivery, true ]
+  ShouldCreateForDelivery: !Equals [ !Ref Stage, "delivery" ]
 
 Resources:
   ECRRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Ref EcrName
+      RepositoryName: !Sub "ecr-microservices-${Stage}-${Suffix}"
       RepositoryPolicyText:
         Version: "2012-10-17"
         Statement:
@@ -84,12 +75,6 @@ Resources:
               - "ecr:PutLifecyclePolicy"
               - "ecr:SetRepositoryPolicy"
 
-
-#  CodeBuild: ... #CodeBuildRolle = PipelineServiceRoleArn
-#  => bauen von buildspec.yaml nur in INT account. INT pushed auf INT+PROD. PROD hat dann kein build mehr.
-#  => ArtifactPropergation
-
-
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -103,12 +88,12 @@ Resources:
         Type: LINUX_CONTAINER
         PrivilegedMode: True
         EnvironmentVariables:
-          - Name: CREATE_FOR_DELIVERY
-            Value: !Ref CreateForDelivery
+          - Name: STAGE
+            Value: !Ref Stage
           - Name: DEVOPS_ACCOUNT_ID
             Value: !Sub ${AWS::AccountId}
           - Name: ECR_NAME
-            Value: !Ref EcrName
+            Value: !Ref ECRRepository
           - Name: REPOSITORY
             Value: !Ref Repository
           - Name: SUFFIX
@@ -132,6 +117,7 @@ Resources:
         - Name: Checkout-SourceCode
           Actions:
             - Name: Checkout-SourceCode
+              Namespace: Source
               ActionTypeId:
                 Category: Source
                 Owner: ThirdParty
@@ -145,6 +131,21 @@ Resources:
                 OAuthToken: 123
               OutputArtifacts:
                 - Name: SourceArtifact
+              RunOrder: 1
+        - Name: BuildAndPush
+          Actions:
+            - Name: BuildAndPushImage
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildOutput
               RunOrder: 1
         - Name: !If
             - ShouldCreateForDelivery
@@ -194,7 +195,7 @@ Resources:
                       "Repository": "${Repository}",
                       "Stage": "${Stage}",
                       "Suffix" : "${Suffix}",
-                      "VpcStackName": "base-vpc-${Stage}-${Suffix}"
+                      "VpcStackName": "base-vpc-${Stage}-master"
                     }
               InputArtifacts:
                 - Name: SourceArtifact
@@ -219,9 +220,11 @@ Resources:
                       "Repository": "${Repository}",
                       "Stage": "${Stage}",
                       "Suffix" : "${Suffix}",
-                      "VpcStackName": "base-vpc-${Stage}-${Suffix}",
+                      "VpcStackName": "base-vpc-${Stage}-master",
                       "ElbStackName": "elb-${Stage}-${Suffix}",
-                      "EcsClusterStackName": "base-ecsCluster-${Stage}-${Suffix}"
+                      "EcsClusterStackName": "base-ecsCluster-${Stage}-master",
+                      "CommitId": "#{Source.CommitId}",
+                      "EcrName": "${ECRRepository}
                     }
               InputArtifacts:
                 - Name: SourceArtifact
@@ -232,19 +235,6 @@ Resources:
             - 'DeployMicroserviceToInt'
             - 'DeployMicroserviceToDev'
           Actions:
-            - Name: BuildAndPushImage
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: 1
-                Provider: CodeBuild
-              Configuration:
-                ProjectName: !Ref CodeBuildProject
-              InputArtifacts:
-                - Name: SourceArtifact
-              OutputArtifacts:
-                - Name: BuildOutput
-              RunOrder: 1
             - Name: DeployECS
               ActionTypeId:
                 Category: Deploy
@@ -305,7 +295,7 @@ Resources:
                         "Repository": "${Repository}",
                         "Stage": "${Stage}",
                         "Suffix" : "${Suffix}",
-                        "VpcStackName": "base-vpc-${Stage}-${Suffix}"
+                        "VpcStackName": "base-vpc-${Stage}-master"
                       }
                 InputArtifacts:
                   - Name: SourceArtifact
@@ -330,9 +320,11 @@ Resources:
                         "Repository": "${Repository}",
                         "Stage": "${Stage}",
                         "Suffix" : "${Suffix}",
-                        "VpcStackName": "base-vpc-${Stage}-${Suffix}",
+                        "VpcStackName": "base-vpc-${Stage}-master",
                         "ElbStackName": "elb-${Stage}-${Suffix}",
-                        "EcsClusterStackName": "base-ecsCluster-${Stage}-${Suffix}"
+                        "EcsClusterStackName": "base-ecsCluster-${Stage}-master",
+                        "CommitId": "#{Source.CommitId}",
+                        "EcrName": "${ECRRepository}
                       }
                 InputArtifacts:
                   - Name: SourceArtifact
@@ -344,19 +336,6 @@ Resources:
           - ShouldCreateForDelivery
           - Name: 'DeployMicroserviceToProd'
             Actions:
-              - Name: BuildAndPushImage
-                ActionTypeId:
-                  Category: Build
-                  Owner: AWS
-                  Version: 1
-                  Provider: CodeBuild
-                Configuration:
-                  ProjectName: !Ref CodeBuildProject
-                InputArtifacts:
-                  - Name: SourceArtifact
-                OutputArtifacts:
-                  - Name: BuildOutput
-                RunOrder: 1
               - Name: DeployECS
                 ActionTypeId:
                   Category: Deploy

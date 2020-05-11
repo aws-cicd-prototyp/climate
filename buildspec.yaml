@@ -2,7 +2,7 @@ version: 0.2
 
 env:
   variables:
-    CREATE_FOR_DELIVERY: "get value from pipeline-cloudformation"
+    STAGE: "get value from pipeline-cloudformation"
     DEVOPS_ACCOUNT_ID: "get value from pipeline-cloudformation"
     ECR_NAME: "get value from pipeline-cloudformation"
     REPOSITORY: "get value from pipeline-cloudformation"
@@ -25,7 +25,7 @@ phases:
       - ls -lah
       - mvn clean install
       - |
-        if [ $CREATE_FOR_DELIVERY = "true" ]
+        if [ $STAGE = "delivery" ]
         then
           echo "start build and push process for DELIVERY (int,prod) stages:"
 
@@ -37,7 +37,7 @@ phases:
           docker push $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
           printf '[{"name":"%s-%s-container","imageUri":"%s:%s"}]' ${REPOSITORY} ${SUFFIX} ${REPOSITORY_URI} $CODEBUILD_RESOLVED_SOURCE_VERSION > imagedefinitions.json
 
-        elif [ $CREATE_FOR_DELIVERY = "false" ]
+        elif [ $STAGE = "dev" ]
         then
           echo "start build and push process for PREVIEW (dev) stage:"
 

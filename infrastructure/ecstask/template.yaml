@@ -17,6 +17,13 @@ Parameters:
     Type: String
   EcsClusterStackName:
     Type: String
+  CommitId:
+    Type: String
+  EcrName:
+    Type: String
+
+Conditions:
+  ShouldCreateForDelivery: !Equals [ !Ref Stage, "delivery" ]
 
 Resources:
   EcsTaskExecutionRole:
@@ -47,7 +54,11 @@ Resources:
       Cpu: 256
       ContainerDefinitions:
         - Name: !Sub ${Repository}-${Suffix}-container
-          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}-ecr-dev:latest"
+          Image:
+            !If
+            - ShouldCreateForDelivery
+            - !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrName}:${CommitId}"
+            - !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrName}:${Suffix}"
           Memory: 512
           Cpu: 256
           PortMappings:
