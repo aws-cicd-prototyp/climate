@@ -224,7 +224,8 @@ Resources:
                       "ElbStackName": "elb-${Stage}-${Suffix}",
                       "EcsClusterStackName": "base-ecsCluster-${Stage}-master",
                       "CommitId": "#{Source.CommitId}",
-                      "EcrName": "${ECRRepository}"
+                      "EcrName": "${ECRRepository}",
+                      "DevOpsAccountId": "${AWS::AccountId}"
                     }
               InputArtifacts:
                 - Name: SourceArtifact
