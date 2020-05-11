@@ -12,7 +12,6 @@ Parameters:
   #import from existing-stacks:
   VpcStackName:
     Type: String
-    Default: "base-vpc-prod-customSuffix"
 
 Resources:
   SgALB:

@@ -13,13 +13,10 @@ Parameters:
   #import from existing-stacks:
   VpcStackName:
     Type: String
-    Default: "base-vpc-prod-customSuffix"
   ElbStackName:
     Type: String
-    Default: "elb-climate-dev-feature-story123"
   EcsClusterStackName:
     Type: String
-    Default: "base-ecsCluster-prod-customSuffix"
 
 Resources:
   EcsTaskExecutionRole:
