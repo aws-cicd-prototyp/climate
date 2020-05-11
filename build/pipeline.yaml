@@ -364,8 +364,8 @@ Resources:
                   Version: 1
                   Provider: ECS
                 Configuration:
-                  ClusterName: base-ecsCluster-prod-customSuffix
-                  ServiceName: ecsService-climate-dev-feature-story123
+                  ClusterName: !Sub base-ecsCluster-${Stage}-${Suffix}
+                  ServiceName: !Sub ecsService-${Repository}-${Stage}-${Suffix}
                 InputArtifacts:
                   - Name: BuildOutput
                 RunOrder: 2

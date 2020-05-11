@@ -25,8 +25,8 @@ deployPipeline:
         			ParameterKey="Project",ParameterValue="aws-cicd-prototyp" \
         			ParameterKey="Repository",ParameterValue="climate" \
 	    			ParameterKey="Suffix",ParameterValue="feature-pr123" \
-        			ParameterKey="Branch",ParameterValue="feature-pr123" \
-        			ParameterKey="Stage",ParameterValue="dev" \
+        			ParameterKey="Branch",ParameterValue="master" \
+        			ParameterKey="Stage",ParameterValue="prod" \
 	      			ParameterKey="RemotePreviewAccount",ParameterValue="420052376030" \
         			ParameterKey="RemoteDeliveryAccount",ParameterValue="496106771575" \
         			ParameterKey="ArtifactBucket",ParameterValue=${BUCKET_DEV} \

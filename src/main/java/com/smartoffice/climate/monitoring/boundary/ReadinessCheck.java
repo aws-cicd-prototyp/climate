@@ -19,12 +19,12 @@ public class ReadinessCheck implements HealthCheck {
     return HealthCheckResponse
         .named("readiness-check")
         .withData("microservice", "climate")
-        .state(checkDbConnection() && doOtherReadinessChecks())
+        .state(isDbConnectionAvailable() && doOtherReadinessChecks())
         .up()
         .build();
   }
 
-  private boolean checkDbConnection(){
+  private boolean isDbConnectionAvailable(){
     //implement db-connectivity-check here...
     return true;
   }

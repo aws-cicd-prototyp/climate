@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Cloudformation-Stack for the climate-microservice
+Description: The Cf-Stack for the climate-microservice ecs task&service
 
 Parameters:
   Project:
@@ -105,7 +105,7 @@ Resources:
       DeploymentConfiguration:
         MinimumHealthyPercent: 100
         MaximumPercent: 200
-      DesiredCount: 2
+      DesiredCount: 0
       NetworkConfiguration:
         AwsvpcConfiguration:
           SecurityGroups:
