@@ -108,15 +108,15 @@ Resources:
       DeploymentConfiguration:
         MinimumHealthyPercent: 100
         MaximumPercent: 200
-      DesiredCount: 0
+      DesiredCount: 2
       NetworkConfiguration:
         AwsvpcConfiguration:
           SecurityGroups:
             - !Ref ServiceSG
           Subnets:
-            - subnet-0cfac8106264f1acf
-            - subnet-0b3e977d8029f4d30
-            - subnet-0cb3c74172bb2949b
+            - Fn::ImportValue: !Sub ${VpcStackName}:PrivateSubnetA
+            - Fn::ImportValue: !Sub ${VpcStackName}:PrivateSubnetB
+            - Fn::ImportValue: !Sub ${VpcStackName}:PrivateSubnetC
       LoadBalancers:
         - ContainerName: !Sub ${Repository}-${Suffix}-container
           ContainerPort: 8080

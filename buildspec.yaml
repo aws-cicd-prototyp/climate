@@ -2,11 +2,11 @@ version: 0.2
 
 env:
   variables:
-    CREATE_FOR_DELIVERY: "get value from cloudformation"
-    DEVOPS_ACCOUNT_ID: "get value from cloudformation"
-    ECR_NAME: "get value from cloudformation"
-    REPOSITORY: "get value from cloudformation"
-    SUFFIX: "get value from cloudformation"
+    CREATE_FOR_DELIVERY: "get value from pipeline-cloudformation"
+    DEVOPS_ACCOUNT_ID: "get value from pipeline-cloudformation"
+    ECR_NAME: "get value from pipeline-cloudformation"
+    REPOSITORY: "get value from pipeline-cloudformation"
+    SUFFIX: "get value from pipeline-cloudformation"
 
 phases:
   install:
@@ -17,6 +17,7 @@ phases:
       - set -e
       - echo log-in into ecr
       - aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com
+      - REPOSITORY_URI=${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}
   build:
     commands:
       - echo start build on `date`
@@ -26,25 +27,27 @@ phases:
       - |
         if [ $CREATE_FOR_DELIVERY = "true" ]
         then
-          echo "start build and push process for DELIVERY stages:"
+          echo "start build and push process for DELIVERY (int,prod) stages:"
+
           docker build -f src/main/docker/Dockerfile.jvm -t ${REPOSITORY}-${SUFFIX}-delivery-image:$CODEBUILD_RESOLVED_SOURCE_VERSION .
 
           docker tag ${REPOSITORY}-${SUFFIX}-delivery-image:$CODEBUILD_RESOLVED_SOURCE_VERSION \
-          ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:$CODEBUILD_RESOLVED_SOURCE_VERSION
+          $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
 
-          docker push ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:$CODEBUILD_RESOLVED_SOURCE_VERSION
-          printf '[{"name":"${Repository}-${Suffix}-container","imageUri":"${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:$CODEBUILD_RESOLVED_SOURCE_VERSION"}]' > imagedefinitions.json
+          docker push $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
+          printf '[{"name":"%s-%s-container","imageUri":"%s:%s"}]' ${REPOSITORY} ${SUFFIX} ${REPOSITORY_URI} $CODEBUILD_RESOLVED_SOURCE_VERSION > imagedefinitions.json
 
         elif [ $CREATE_FOR_DELIVERY = "false" ]
         then
-          echo "start build and push process for PREVIEW stage:"
+          echo "start build and push process for PREVIEW (dev) stage:"
+
           docker build -f src/main/docker/Dockerfile.jvm -t ${REPOSITORY}-${SUFFIX}-preview-image:${SUFFIX} .
 
           docker tag ${REPOSITORY}-${SUFFIX}-preview-image:${SUFFIX} \
-          ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}
+          $REPOSITORY_URI:${SUFFIX}
 
-          docker push ${DEVOPS_ACCOUNT_ID}.dkr.ecr.eu-central-1.amazonaws.com/${ECR_NAME}:${SUFFIX}
-          printf '[{"name":"%s-%s-container","imageUri":"%s.dkr.ecr.eu-central-1.amazonaws.com/%s:%s"}]' ${REPOSITORY} ${SUFFIX} ${DEVOPS_ACCOUNT_ID} ${ECR_NAME} ${SUFFIX} > imagedefinitions.json
+          docker push $REPOSITORY_URI:${SUFFIX}
+          printf '[{"name":"%s-%s-container","imageUri":"%s:%s"}]' ${REPOSITORY} ${SUFFIX} ${REPOSITORY_URI} ${SUFFIX} > imagedefinitions.json
 
         else
           echo "!!! ERROR, invalid boolean for env-variable: CREATE_FOR_DELIVERY !!!"

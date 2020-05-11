@@ -23,9 +23,9 @@ Resources:
       SecurityGroupIngress:
         - IpProtocol: tcp
           CidrIp: "0.0.0.0/0"
-          Description: "ingress rule for tcp on port 8080"
-          FromPort: 8080
-          ToPort: 8080
+          Description: "ingress rule for tcp on port 80"
+          FromPort: 80
+          ToPort: 80
       VpcId:
         Fn::ImportValue: !Sub ${VpcStackName}:VpcId
       Tags:
@@ -44,10 +44,9 @@ Resources:
       SecurityGroups:
         - !Ref SgALB
       Subnets:
-        - subnet-035b67fe1e85c1f53
-        - subnet-05001bbf24ce7837b
-        - subnet-0f211776c0006eece
-
+        - Fn::ImportValue: !Sub ${VpcStackName}:PublicSubnetA
+        - Fn::ImportValue: !Sub ${VpcStackName}:PublicSubnetB
+        - Fn::ImportValue: !Sub ${VpcStackName}:PublicSubnetC
       Tags:
         - Key: "Name"
           Value: !Sub sg-elb-${Repository}-${Stage}-${Suffix}
@@ -85,7 +84,7 @@ Resources:
     Properties:
       LoadBalancerArn: !Ref ALB
       Protocol: HTTP
-      Port: 8080
+      Port: 80
       DefaultActions:
         - Order: 1
           Type: "forward"
