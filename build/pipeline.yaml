@@ -119,7 +119,7 @@ Resources:
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: !Sub "microservice-pipeline-${Project}-${Repository}-${Stage}-${Suffix}"
+      Name: !Sub "ms-pipeline-${Repository}-${Stage}-${Suffix}"
       ArtifactStore:
         EncryptionKey:
           Id: !Ref PipelineKmsKeyArn
@@ -223,7 +223,10 @@ Resources:
                 - Name: SourceArtifact
               RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
               RunOrder: 3
-        - Name: BuildMicroservice
+        - Name: !If
+            - ShouldCreateForDelivery
+            - 'DeployMicroserviceToInt'
+            - 'DeployMicroserviceToDev'
           Actions:
             - Name: BuildAndPushImage
               ActionTypeId:
@@ -238,19 +241,125 @@ Resources:
               OutputArtifacts:
                 - Name: BuildOutput
               RunOrder: 1
+            - Name: DeployECS
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration:
+                ClusterName: base-ecsCluster-prod-customSuffix
+                ServiceName: ecsService-climate-dev-feature-story123
+              InputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 2
+              RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+        - !If
+          - ShouldCreateForDelivery
+          - Name: 'DeployInfrastructureToProd'
+            Actions:
+              - Name: DeployDynamoDbTable
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Provider: CloudFormation
+                  Version: 1
+                Configuration:
+                  ActionMode: CREATE_UPDATE
+                  Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                  StackName: !Sub "ddbTable-${Stage}-${Suffix}"
+                  RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                  TemplatePath: "SourceArtifact::infrastructure/ddb/template.yaml"
+                  ParameterOverrides:
+                    Fn::Sub: |
+                      {
+                        "Project": "${Project}",
+                        "Repository": "${Repository}",
+                        "Stage": "${Stage}",
+                        "Suffix" : "${Suffix}"
+                      }
+                InputArtifacts:
+                  - Name: SourceArtifact
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+                RunOrder: 1
+              - Name: DeployELB
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Provider: CloudFormation
+                  Version: 1
+                Configuration:
+                  ActionMode: CREATE_UPDATE
+                  Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                  StackName: !Sub elb-${Repository}-${Stage}-${Suffix}
+                  RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                  TemplatePath: "SourceArtifact::infrastructure/elb/template.yaml"
+                  ParameterOverrides:
+                    Fn::Sub: |
+                      {
+                        "Project": "${Project}",
+                        "Repository": "${Repository}",
+                        "Stage": "${Stage}",
+                        "Suffix" : "${Suffix}"
+                      }
+                InputArtifacts:
+                  - Name: SourceArtifact
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+                RunOrder: 2
+              - Name: DeployEcsTaskAndService
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Provider: CloudFormation
+                  Version: 1
+                Configuration:
+                  ActionMode: CREATE_UPDATE
+                  Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                  StackName: !Sub "ecsTaskAndService-${Stage}-${Suffix}"
+                  RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                  TemplatePath: "SourceArtifact::infrastructure/ecstask/template.yaml"
+                  ParameterOverrides:
+                    Fn::Sub: |
+                      {
+                        "Project": "${Project}",
+                        "Repository": "${Repository}",
+                        "Stage": "${Stage}",
+                        "Suffix" : "${Suffix}"
+                      }
+                InputArtifacts:
+                  - Name: SourceArtifact
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+                RunOrder: 3
+          - !Ref AWS::NoValue
 
-#            - Name: DeployToEcr
-#              Actions:
-#                - Name: Deploy
-#                  ActionTypeId:
-#                    Category: Deploy
-#                    Owner: AWS
-#                    Version: 1
-#                    Provider: ECS
-#                  Configuration:
-#                    ClusterName: !Sub ${EcsClusterName}
-#                    ServiceName: !Sub ${EcsServiceName}
-#                  InputArtifacts:
-#                    - Name: BuildOutput
-#                  RunOrder: 1
-#                  RoleArn: !Sub ${MsEcrCrossAccountRole}
+        - !If
+          - ShouldCreateForDelivery
+          - Name: 'DeployMicroserviceToProd'
+            Actions:
+              - Name: BuildAndPushImage
+                ActionTypeId:
+                  Category: Build
+                  Owner: AWS
+                  Version: 1
+                  Provider: CodeBuild
+                Configuration:
+                  ProjectName: !Ref CodeBuildProject
+                InputArtifacts:
+                  - Name: SourceArtifact
+                OutputArtifacts:
+                  - Name: BuildOutput
+                RunOrder: 1
+              - Name: DeployECS
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Version: 1
+                  Provider: ECS
+                Configuration:
+                  ClusterName: base-ecsCluster-prod-customSuffix
+                  ServiceName: ecsService-climate-dev-feature-story123
+                InputArtifacts:
+                  - Name: BuildOutput
+                RunOrder: 2
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+          - !Ref AWS::NoValue

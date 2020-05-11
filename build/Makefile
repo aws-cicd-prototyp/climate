@@ -9,7 +9,7 @@ WORKLOAD_ACCOUNT_ID=496106771575
 
 deployPipeline:
 	@echo "Creating the Pipeline Stack..."
-	@aws cloudformation create-stack \
+	@aws cloudformation update-stack \
 		--stack-name climateMsPipelineStack \
 		--template-body file://pipeline.yaml \
 		--parameters \
@@ -31,7 +31,7 @@ deployPipeline:
 
 	@echo "Waiting till all resources have been created... this can take some minutes"
 	@aws cloudformation wait stack-create-complete \
-		--stack-name climateMsStack \
+		--stack-name climateMsPipelineStack \
 		--profile ${AWS_DEVOPS_PROFILE} \
 		--region ${AWS_REGION}
 	@echo "successful created!"
