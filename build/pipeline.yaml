@@ -54,7 +54,7 @@ Resources:
               AWS:
                 - !Sub arn:aws:iam::${AWS::AccountId}:root
                 - !Sub arn:aws:iam::${RemotePreviewAccount}:root
-                - !If [ShouldCreateForDelivery, !Sub "arn:aws:iam::${RemoteDeliveryAccount}:root", !Ref AWS::NoValue]
+                - !If [ShouldCreateForDelivery, !Sub "arn:aws:iam::${RemoteDeliveryAccount}:root", !Ref "AWS::NoValue"]
             Action:
               - "ecr:BatchCheckLayerAvailability"
               - "ecr:BatchDeleteImage"
