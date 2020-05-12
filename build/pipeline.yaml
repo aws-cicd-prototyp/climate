@@ -39,6 +39,7 @@ Parameters:
 
 Conditions:
   ShouldCreateForDelivery: !Equals [ !Ref Stage, "delivery" ]
+  ShouldCreateForDev: !Equals [ !Ref Stage, "dev" ]
 
 Resources:
   ECRRepository:
@@ -249,6 +250,7 @@ Resources:
                 - Name: BuildOutput
               RunOrder: 2
               RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+
         - !If
           - ShouldCreateForDelivery
           - Name: 'DeployInfrastructureToProd'
@@ -263,7 +265,7 @@ Resources:
                   ActionMode: CREATE_UPDATE
                   Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
                   StackName: !Sub "ddbTable-${Stage}-${Suffix}"
-                  RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                  RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemoteDeliveryAccount}"
                   TemplatePath: "SourceArtifact::infrastructure/ddb/template.yaml"
                   ParameterOverrides:
                     Fn::Sub: |
@@ -275,7 +277,7 @@ Resources:
                       }
                 InputArtifacts:
                   - Name: SourceArtifact
-                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+                RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemoteDeliveryAccount}"
                 RunOrder: 1
               - Name: DeployELB
                 ActionTypeId:
@@ -286,8 +288,8 @@ Resources:
                 Configuration:
                   ActionMode: CREATE_UPDATE
                   Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                  StackName: !Sub elb-${Repository}-${Stage}-${Suffix}
-                  RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                  StackName: !Sub elb-${Stage}-${Suffix}
+                  RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemoteDeliveryAccount}"
                   TemplatePath: "SourceArtifact::infrastructure/elb/template.yaml"
                   ParameterOverrides:
                     Fn::Sub: |
@@ -300,7 +302,7 @@ Resources:
                       }
                 InputArtifacts:
                   - Name: SourceArtifact
-                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+                RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemoteDeliveryAccount}"
                 RunOrder: 2
               - Name: DeployEcsTaskAndService
                 ActionTypeId:
@@ -312,7 +314,7 @@ Resources:
                   ActionMode: CREATE_UPDATE
                   Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
                   StackName: !Sub "ecsTaskAndService-${Stage}-${Suffix}"
-                  RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+                  RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemoteDeliveryAccount}"
                   TemplatePath: "SourceArtifact::infrastructure/ecstask/template.yaml"
                   ParameterOverrides:
                     Fn::Sub: |
@@ -325,11 +327,12 @@ Resources:
                         "ElbStackName": "elb-${Stage}-${Suffix}",
                         "EcsClusterStackName": "base-ecsCluster-${Stage}-master",
                         "CommitId": "#{Source.CommitId}",
-                        "EcrName": "${ECRRepository}
+                        "EcrName": "${ECRRepository}",
+                        "DevOpsAccountId": "${AWS::AccountId}"
                       }
                 InputArtifacts:
                   - Name: SourceArtifact
-                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+                RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemoteDeliveryAccount}"
                 RunOrder: 3
           - !Ref AWS::NoValue
 
@@ -344,10 +347,43 @@ Resources:
                   Version: 1
                   Provider: ECS
                 Configuration:
-                  ClusterName: !Sub base-ecsCluster-${Stage}-${Suffix}
+                  ClusterName: !Sub base-ecsCluster-${Stage}-master
                   ServiceName: !Sub ecsService-${Repository}-${Stage}-${Suffix}
                 InputArtifacts:
                   - Name: BuildOutput
                 RunOrder: 2
-                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}"
+                RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemoteDeliveryAccount}"
           - !Ref AWS::NoValue
+
+  ##Cleanup:
+
+  CleanupDynamoDB:
+    Type: "AWS::CloudFormation::CustomResource"
+    Condition: ShouldCreateForDev
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref DynamicPipelineCleanupLambdaArn
+      RoleArn: !Sub arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}
+      Region: !Ref AWS::Region
+      StackName: !Sub "ddbTable-${Stage}-${Suffix}"
+
+  CleanupELB:
+    Type: "AWS::CloudFormation::CustomResource"
+    Condition: ShouldCreateForDev
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref DynamicPipelineCleanupLambdaArn
+      RoleArn: !Sub arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}
+      Region: !Ref AWS::Region
+      StackName: !Sub "elb-${Stage}-${Suffix}"
+
+  CleanupEcsTaskAndService:
+    Type: "AWS::CloudFormation::CustomResource"
+    Condition: ShouldCreateForDev
+    DependsOn: CleanupELB
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref DynamicPipelineCleanupLambdaArn
+      RoleArn: !Sub arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}
+      Region: !Ref AWS::Region
+      StackName: !Sub "ecsTaskAndService-${Stage}-${Suffix}"
