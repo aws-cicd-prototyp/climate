@@ -127,8 +127,8 @@ Resources:
                 Owner: !Ref Project
                 Repo: !Ref Repository
                 Branch: !Ref Branch
-                PollForSourceChanges: False
-                OAuthToken: 123
+                PollForSourceChanges: !If [ShouldCreateForDelivery, "false", "true"]
+                OAuthToken: "{{resolve:ssm:GitHubToken:1}}"
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
@@ -224,7 +224,8 @@ Resources:
                       "ElbStackName": "elb-${Stage}-${Suffix}",
                       "EcsClusterStackName": "base-ecsCluster-${Stage}-master",
                       "CommitId": "#{Source.CommitId}",
-                      "EcrName": "${ECRRepository}
+                      "EcrName": "${ECRRepository}",
+                      "DevOpsAccountId": "${AWS::AccountId}"
                     }
               InputArtifacts:
                 - Name: SourceArtifact
@@ -242,7 +243,7 @@ Resources:
                 Version: 1
                 Provider: ECS
               Configuration:
-                ClusterName: !Sub base-ecsCluster-${Stage}-${Suffix}
+                ClusterName: !Sub base-ecsCluster-${Stage}-master
                 ServiceName: !Sub ecsService-${Repository}-${Stage}-${Suffix}
               InputArtifacts:
                 - Name: BuildOutput
