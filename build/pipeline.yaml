@@ -253,6 +253,21 @@ Resources:
 
         - !If
           - ShouldCreateForDelivery
+          - Name: ApproveBeforeProd
+            Actions:
+              - Name: Approve
+                ActionTypeId:
+                  Category: Approval
+                  Owner: AWS
+                  Provider: Manual
+                  Version: 1
+                Configuration:
+                  CustomData: 'Approve or Reject with comments here.'
+                RunOrder: 1
+          - !Ref AWS::NoValue
+
+        - !If
+          - ShouldCreateForDelivery
           - Name: 'DeployInfrastructureToProd'
             Actions:
               - Name: DeployDynamoDbTable
