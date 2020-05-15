@@ -18,7 +18,7 @@ public class ClimateDataStore {
    * test-impl. => Will be replaced later by real sensor-data from dynamoDB!
    */
   public List<ClimateData> getClimateData(String date) {
-    return IntStream.rangeClosed(7, 9)
+    return IntStream.rangeClosed(3, 9)
         .boxed()
         .map(r -> new ClimateData(date, format("0%s:45:32", r), 20+r, 50+r))
         .collect(toList());
