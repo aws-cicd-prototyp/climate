@@ -328,7 +328,9 @@ Resources:
                 RunOrder: 2
                 RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemoteDeliveryAccount}" 
           - !Ref AWS::NoValue
-         - Name: 'DeployInfrastructureToProd'
+        - !If
+          - ShouldCreateForDelivery
+          - Name: 'DeployInfrastructureToProd'
             Actions:
               - Name: DeployDynamoDbTable
                 ActionTypeId:
