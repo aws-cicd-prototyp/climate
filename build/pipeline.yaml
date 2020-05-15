@@ -327,7 +327,8 @@ Resources:
                   - Name: S3BucketProd
                 RunOrder: 2
                 RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemoteDeliveryAccount}" 
-          - Name: 'DeployInfrastructureToProd'
+          - !Ref AWS::NoValue
+         - Name: 'DeployInfrastructureToProd'
             Actions:
               - Name: DeployDynamoDbTable
                 ActionTypeId:
