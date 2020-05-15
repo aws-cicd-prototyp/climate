@@ -150,8 +150,8 @@ Resources:
               RunOrder: 1
         - Name: !If
             - ShouldCreateForDelivery
-            - 'S3BucketDev'
             - 'S3BucketInt'
+            - 'S3BucketDev'
           Actions:
             - Name: S3Bucket
               ActionTypeId:
