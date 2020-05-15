@@ -1,0 +1,44 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cloudformation-Stack for the base pipeline infrastructure. This stack is created in the DevOps Account.
+
+Parameters:
+  Stage:
+    Type: String
+  Suffix: 
+    Type: String
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join
+        - "-"
+        - - "microservice-artifacts"
+          - !Ref Stage
+          - !Ref Suffix
+          - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref "AWS::StackId"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub "some-new-bucket"
+        - Key: Stage
+          Value: !Sub "test"
+
+Outputs:
+  ArtifactBucket:
+    Description: The S3 Bucket for the artifacts
+    Value: !Ref ArtifactBucket
+    Export:
+      Name: !Sub "${AWS::StackName}:ArtifactBucket"

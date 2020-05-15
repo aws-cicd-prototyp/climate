@@ -148,6 +148,38 @@ Resources:
               OutputArtifacts:
                 - Name: BuildOutput
               RunOrder: 1
+                - Name: S3Bucket
+        - Name: !If
+            - ShouldCreateForDelivery
+            - 'S3BucketDev'
+            - 'S3BucketInt'
+          Actions:
+            - Name: S3Bucket
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CloudFormation
+              Configuration:
+                ActionMode: CREATE_UPDATE # TODO replace failed
+                StackName: !Sub "s3-bucket-${Stage}-${Suffix}"
+                Capabilities: CAPABILITY_NAMED_IAM
+                TemplatePath: SourceOutput::infrastructure/s3/template.yaml
+                ParameterOverrides: 
+                  Fn::Sub: |
+                    {
+                      "Stage" : "${Stage}",
+                      "Suffix" : "${Suffix}"
+                    }
+                OutputFileName: output.json
+                RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: S3BucketPreview
+              RunOrder: 2
+              RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}" 
+
         - Name: !If
             - ShouldCreateForDelivery
             - 'DeployInfrastructureToInt'
@@ -226,7 +258,8 @@ Resources:
                       "EcsClusterStackName": "base-ecsCluster-${Stage}-master",
                       "CommitId": "#{Source.CommitId}",
                       "EcrName": "${ECRRepository}",
-                      "DevOpsAccountId": "${AWS::AccountId}"
+                      "DevOpsAccountId": "${AWS::AccountId}",
+                      "S3Bucket" : {"Fn::GetParam" : ["S3BucketPreview", "output.json", "ArtifactBucket"]}
                     }
               InputArtifacts:
                 - Name: SourceArtifact
@@ -268,6 +301,33 @@ Resources:
 
         - !If
           - ShouldCreateForDelivery
+          - Name: S3BucketProd
+            Actions:
+              - Name: S3Bucket
+                ActionTypeId:
+                  Category: Deploy
+                  Owner: AWS
+                  Version: 1
+                  Provider: CloudFormation
+                Configuration:
+                  ActionMode: CREATE_UPDATE # TODO replace failed
+                  StackName: !Sub "s3-bucket-${Stage}-${Suffix}"
+                  Capabilities: CAPABILITY_NAMED_IAM
+                  TemplatePath: SourceOutput::infrastructure/s3/template.yaml
+                  ParameterOverrides: 
+                    Fn::Sub: |
+                      {
+                        "Stage" : "${Stage}",
+                        "Suffix" : "${Suffix}"
+                      }
+                  OutputFileName: output.json
+                  RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemoteDeliveryAccount}"
+                InputArtifacts:
+                  - Name: SourceOutput
+                OutputArtifacts:
+                  - Name: S3BucketProd
+                RunOrder: 2
+                RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemoteDeliveryAccount}" 
           - Name: 'DeployInfrastructureToProd'
             Actions:
               - Name: DeployDynamoDbTable
@@ -343,7 +403,8 @@ Resources:
                         "EcsClusterStackName": "base-ecsCluster-${Stage}-master",
                         "CommitId": "#{Source.CommitId}",
                         "EcrName": "${ECRRepository}",
-                        "DevOpsAccountId": "${AWS::AccountId}"
+                        "DevOpsAccountId": "${AWS::AccountId}",
+                        "S3Bucket" : {"Fn::GetParam" : ["S3BucketProd", "output.json", "ArtifactBucket"]}
                       }
                 InputArtifacts:
                   - Name: SourceArtifact
