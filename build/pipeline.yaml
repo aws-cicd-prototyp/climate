@@ -148,19 +148,16 @@ Resources:
               OutputArtifacts:
                 - Name: BuildOutput
               RunOrder: 1
-        - Name: !If
-            - ShouldCreateForDelivery
-            - 'S3BucketInt'
-            - 'S3BucketDev'
+        - Name: S3BucketPreview
           Actions:
-            - Name: S3Bucket
+            - Name: S3BucketPreview
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
                 Version: 1
                 Provider: CloudFormation
               Configuration:
-                ActionMode: CREATE_UPDATE # TODO replace failed
+                ActionMode: CREATE_UPDATE 
                 StackName: !Sub "s3-bucket-${Stage}-${Suffix}"
                 Capabilities: CAPABILITY_NAMED_IAM
                 TemplatePath: SourceArtifact::infrastructure/s3/template.yaml
@@ -309,7 +306,7 @@ Resources:
                   Version: 1
                   Provider: CloudFormation
                 Configuration:
-                  ActionMode: CREATE_UPDATE # TODO replace failed
+                  ActionMode: CREATE_UPDATE 
                   StackName: !Sub "s3-bucket-${Stage}-${Suffix}"
                   Capabilities: CAPABILITY_NAMED_IAM
                   TemplatePath: SourceArtifact::infrastructure/s3/template.yaml
@@ -444,6 +441,16 @@ Resources:
       RoleArn: !Sub arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}
       Region: !Ref AWS::Region
       StackName: !Sub "ddbTable-${Stage}-${Suffix}"
+
+  CleanupS3Bucket:
+    Type: "AWS::CloudFormation::CustomResource"
+    Condition: ShouldCreateForDev
+    Version: '1.0'
+    Properties:
+      ServiceToken: !Ref DynamicPipelineCleanupLambdaArn
+      RoleArn: !Sub arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineServiceRole-${AWS::Region}-${RemotePreviewAccount}
+      Region: !Ref AWS::Region
+      StackName: !Sub "s3-bucket-${Stage}-${Suffix}"
 
   CleanupELB:
     Type: "AWS::CloudFormation::CustomResource"
