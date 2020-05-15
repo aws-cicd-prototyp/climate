@@ -163,7 +163,7 @@ Resources:
                 ActionMode: CREATE_UPDATE # TODO replace failed
                 StackName: !Sub "s3-bucket-${Stage}-${Suffix}"
                 Capabilities: CAPABILITY_NAMED_IAM
-                TemplatePath: SourceOutput::infrastructure/s3/template.yaml
+                TemplatePath: SourceArtifact::infrastructure/s3/template.yaml
                 ParameterOverrides: 
                   Fn::Sub: |
                     {
@@ -173,7 +173,7 @@ Resources:
                 OutputFileName: output.json
                 RoleArn: !Sub "arn:aws:iam::${RemotePreviewAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemotePreviewAccount}"
               InputArtifacts:
-                - Name: SourceOutput
+                - Name: SourceArtifact
               OutputArtifacts:
                 - Name: S3BucketPreview
               RunOrder: 2
@@ -312,7 +312,7 @@ Resources:
                   ActionMode: CREATE_UPDATE # TODO replace failed
                   StackName: !Sub "s3-bucket-${Stage}-${Suffix}"
                   Capabilities: CAPABILITY_NAMED_IAM
-                  TemplatePath: SourceOutput::infrastructure/s3/template.yaml
+                  TemplatePath: SourceArtifact::infrastructure/s3/template.yaml
                   ParameterOverrides: 
                     Fn::Sub: |
                       {
@@ -322,7 +322,7 @@ Resources:
                   OutputFileName: output.json
                   RoleArn: !Sub "arn:aws:iam::${RemoteDeliveryAccount}:role/CodePipelineDeploymentRole-${AWS::Region}-${RemoteDeliveryAccount}"
                 InputArtifacts:
-                  - Name: SourceOutput
+                  - Name: SourceArtifact
                 OutputArtifacts:
                   - Name: S3BucketProd
                 RunOrder: 2
