@@ -148,7 +148,6 @@ Resources:
               OutputArtifacts:
                 - Name: BuildOutput
               RunOrder: 1
-                - Name: S3Bucket
         - Name: !If
             - ShouldCreateForDelivery
             - 'S3BucketDev'
